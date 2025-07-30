@@ -1,16 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: "https://oai.helicone.ai/v1",
-  defaultHeaders: {
-    "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`
+function validateApiKeys() {
+  const openaiKey = process.env.OPENAI_API_KEY;
+  const heliconeKey = process.env.HELICONE_API_KEY;
+
+  if (!openaiKey) {
+    throw new Error('OPENAI_API_KEY environment variable is required');
   }
-});
+
+  if (!heliconeKey) {
+    throw new Error('HELICONE_API_KEY environment variable is required');
+  }
+
+  return { openaiKey, heliconeKey };
+}
+
+let openai: OpenAI;
+
+try {
+  const { openaiKey, heliconeKey } = validateApiKeys();
+  openai = new OpenAI({
+    apiKey: openaiKey,
+    baseURL: "https://oai.helicone.ai/v1",
+    defaultHeaders: {
+      "Helicone-Auth": `Bearer ${heliconeKey}`
+    }
+  });
+} catch (error) {
+  console.error('API key validation failed:', error);
+}
 
 export async function POST(request: NextRequest) {
   try {
+    if (!openai) {
+      return NextResponse.json(
+        { error: 'API configuration error: Missing required API keys (OPENAI_API_KEY or HELICONE_API_KEY)' },
+        { status: 500 }
+      );
+    }
+
     const { message } = await request.json();
 
     if (!message) {
